@@ -1,0 +1,532 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 48,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import requests\n",
+    "import time\n",
+    "from tqdm import tqdm_notebook as tqdm\n",
+    "import json\n",
+    "import io\n",
+    "import os\n",
+    "from requests.auth import HTTPBasicAuth\n",
+    "# Import config and mode helper modules\n",
+    "from ops_data import config as config_, mode, general_helpers"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 49,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Get config variables from ops-data-secrets.json file\n",
+    "config = config_.get_config()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 50,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df = mode.get_query_result(\n",
+    "   config,\n",
+    "   report_token='648f85d95adc',\n",
+    "   query_token='10a97d1b67f2'\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 51,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#Get results from query and reduce columns in dataframe to only ssc and mpan\n",
+    "df = df[['mpan']]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 52,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>mpan</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <td>0</td>\n",
+       "      <td>1300003470191</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>1</td>\n",
+       "      <td>1900043077658</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>2</td>\n",
+       "      <td>1300051535198</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>3</td>\n",
+       "      <td>1200023723109</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>4</td>\n",
+       "      <td>1160000078917</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "            mpan\n",
+       "0  1300003470191\n",
+       "1  1900043077658\n",
+       "2  1300051535198\n",
+       "3  1200023723109\n",
+       "4  1160000078917"
+      ]
+     },
+     "execution_count": 52,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#Check top 5 rows to make sure mpans and ssc's are there\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 53,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "5"
+      ]
+     },
+     "execution_count": 53,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#Number of rows in dataframe\n",
+    "len(df)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 44,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#This can be used to test the top 5 rows from the query\n",
+    "#df = df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 54,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "mpan_api = 'https://www.ecoes.co.uk/WebServices/Service/ECOESAPI.svc/RESTful/JSON/GetTechnicalDetailsByMpan'"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 55,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "key = config.ECOES_API_KEY"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "data": {
+      "application/vnd.jupyter.widget-view+json": {
+       "model_id": "4838ccaaa5db4bbc959ad9b84d26f860",
+       "version_major": 2,
+       "version_minor": 0
+      },
+      "text/plain": [
+       "HBox(children=(IntProgress(value=0, max=5), HTML(value='')))"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "mpan        1300003470191\n",
+      "e_mpan      1300003470191\n",
+      "e_ssc                0393\n",
+      "e_serial       19L3268596\n",
+      "Name: 0, dtype: object\n",
+      "mpan        1900043077658\n",
+      "e_mpan      1900043077658\n",
+      "e_ssc                0393\n",
+      "e_serial       19L3491334\n",
+      "Name: 1, dtype: object\n",
+      "mpan        1300051535198\n",
+      "e_mpan      1300051535198\n",
+      "e_ssc                0393\n",
+      "e_serial       19L3516461\n",
+      "Name: 2, dtype: object\n",
+      "mpan        1200023723109\n",
+      "e_mpan      1200023723109\n",
+      "e_ssc                0393\n",
+      "e_serial       19L3490314\n",
+      "Name: 3, dtype: object\n",
+      "mpan        1160000078917\n",
+      "e_mpan      1160000078917\n",
+      "e_ssc                0393\n",
+      "e_serial       19L3266306\n",
+      "Name: 4, dtype: object\n",
+      "\n"
+     ]
+    }
+   ],
+   "source": [
+    "for i, row in tqdm(df.iterrows(), total=len(df)):\n",
+    "    \n",
+    "    time.sleep(1)\n",
+    "    print(row)\n",
+    "    \n",
+    "    mpan = str(row['mpan'])\n",
+    "    \n",
+    "    my_dict = {\n",
+    "        \"Authentication\":{\n",
+    "            \"Key\":key\n",
+    "        },\n",
+    "        \"ParameterSets\":[{\n",
+    "            \"Parameters\":[{\n",
+    "                \"Key\":\"mpan\",\n",
+    "                \"Value\":mpan\n",
+    "            },\n",
+    "            {\"Key\":\"Permission\",\n",
+    "            \"Value\":{}\n",
+    "            }\n",
+    "            ]\n",
+    "\n",
+    "        }]\n",
+    "    }\n",
+    "    \n",
+    "    submit_mpan = requests.post(mpan_api.format(mpan),json=my_dict)\n",
+    "    \n",
+    "    if submit_mpan.ok:\n",
+    "        api_data = submit_mpan.json()\n",
+    "        df.loc[i, 'e_mpan'] = api_data['Results'][0]['ParameterSet']['Parameters'][0]['Value']\n",
+    "        df.loc[i, 'e_ssc'] = api_data['Results'][0]['UtilityMatches'][0]['UtilityDetails'][18]['Value']\n",
+    "        #If no MTDs in ECOES then add this message as a string to dataframe\n",
+    "        if api_data['Results'][0]['UtilityMatches'][0]['Meters'][0]['MeterDetails'] == []:\n",
+    "            df.loc[i, 'e_serial'] = 'MTDs not in ECOES'\n",
+    "        else:\n",
+    "            df.loc[i, 'e_serial'] = api_data['Results'][0]['UtilityMatches'][0]['Meters'][0]['MeterDetails'][1]['Value']\n",
+    "\n",
+    "        \n",
+    "    elif submit_mpan.status_code == 400:\n",
+    "        error_message = submit_read.text\n",
+    "        df.loc[i, 'error_message'] = error_message\n",
+    "        print(error_message)\n",
+    "        continue\n",
+    "        \n",
+    "    else:\n",
+    "        df.loc[i, 'submitted'] = False\n",
+    "        print('Other error...')\n",
+    "        continue\n",
+    "    \n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "output_path = \"~\\\\ops-data\\\\data\\\\outputs\\\\ecoes_api\\\\\"\n",
+    "output_path = output_path = os.path.expanduser(output_path)\n",
+    "general_helpers.create_output_path(output_path)\n",
+    "\n",
+    "df.to_csv(output_path + 'ECOES_API_SSC_20200611.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>mpan</th>\n",
+       "      <th>e_mpan</th>\n",
+       "      <th>e_ssc</th>\n",
+       "      <th>e_serial</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <td>0</td>\n",
+       "      <td>1300003470191</td>\n",
+       "      <td>1300003470191</td>\n",
+       "      <td>0393</td>\n",
+       "      <td>19L3268596</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>1</td>\n",
+       "      <td>1900043077658</td>\n",
+       "      <td>1900043077658</td>\n",
+       "      <td>0393</td>\n",
+       "      <td>19L3491334</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>2</td>\n",
+       "      <td>1300051535198</td>\n",
+       "      <td>1300051535198</td>\n",
+       "      <td>0393</td>\n",
+       "      <td>19L3516461</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>3</td>\n",
+       "      <td>1200023723109</td>\n",
+       "      <td>1200023723109</td>\n",
+       "      <td>0393</td>\n",
+       "      <td>19L3490314</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <td>4</td>\n",
+       "      <td>1160000078917</td>\n",
+       "      <td>1160000078917</td>\n",
+       "      <td>0393</td>\n",
+       "      <td>19L3266306</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "            mpan         e_mpan e_ssc    e_serial\n",
+       "0  1300003470191  1300003470191  0393  19L3268596\n",
+       "1  1900043077658  1900043077658  0393  19L3491334\n",
+       "2  1300051535198  1300051535198  0393  19L3516461\n",
+       "3  1200023723109  1200023723109  0393  19L3490314\n",
+       "4  1160000078917  1160000078917  0393  19L3266306"
+      ]
+     },
+     "execution_count": 28,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{'Header': {'RequestDate': '20200709 05:29:53.PM',\n",
+       "  'RequestId': 0,\n",
+       "  'ResponseTime': '281.2473',\n",
+       "  'VersionNumber': '2.0.0.0;Instance=LIVE'},\n",
+       " 'Results': [{'Errors': [],\n",
+       "   'ParameterSet': {'Parameters': [{'Key': 'mpan', 'Value': '1160000078917'},\n",
+       "     {'Key': 'Permission', 'Value': None}]},\n",
+       "   'UtilityMatches': [{'UtilityDetails': [{'Key': 'mpan_core',\n",
+       "       'Value': '1160000078917'},\n",
+       "      {'Key': 'address_line_1', 'Value': None},\n",
+       "      {'Key': 'address_line_2', 'Value': None},\n",
+       "      {'Key': 'address_line_3', 'Value': '46'},\n",
+       "      {'Key': 'address_line_4', 'Value': None},\n",
+       "      {'Key': 'address_line_5', 'Value': 'TEMPLARS COURT'},\n",
+       "      {'Key': 'address_line_6', 'Value': None},\n",
+       "      {'Key': 'address_line_7', 'Value': None},\n",
+       "      {'Key': 'address_line_8', 'Value': 'NOTTINGHAM'},\n",
+       "      {'Key': 'address_line_9', 'Value': 'NOTTINGHAMSHIRE'},\n",
+       "      {'Key': 'postcode', 'Value': 'NG7 3GT'},\n",
+       "      {'Key': 'trading_status_efd', 'Value': '20060418'},\n",
+       "      {'Key': 'profile_class', 'Value': '01'},\n",
+       "      {'Key': 'profile_class_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'meter_timeswitch_class', 'Value': '801'},\n",
+       "      {'Key': 'meter_timeswitch_class_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'line_loss_factor', 'Value': '001'},\n",
+       "      {'Key': 'line_loss_factor_efd', 'Value': '20050613'},\n",
+       "      {'Key': 'standard_settlement_configuration', 'Value': '0393'},\n",
+       "      {'Key': 'standard_settlement_configuration_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'energisation_status', 'Value': 'E'},\n",
+       "      {'Key': 'trading_status', 'Value': 'T'},\n",
+       "      {'Key': 'gsp_group_id', 'Value': '_B'},\n",
+       "      {'Key': 'gsp_group_efd', 'Value': '20050613'},\n",
+       "      {'Key': 'data_aggregator_mpid', 'Value': 'ACCU'},\n",
+       "      {'Key': 'data_aggregator_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'data_collector_mpid', 'Value': 'ACCU'},\n",
+       "      {'Key': 'data_collector_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'supplier_mpid', 'Value': 'REGE'},\n",
+       "      {'Key': 'supplier_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'energisation_status_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'meter_operator_mpid', 'Value': 'SIEM'},\n",
+       "      {'Key': 'meter_operator_efd', 'Value': '20180524'},\n",
+       "      {'Key': 'measurement_class', 'Value': 'A'},\n",
+       "      {'Key': 'measurement_class_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'green_deal_in_effect', 'Value': '0'},\n",
+       "      {'Key': 'smso_mpid', 'Value': None},\n",
+       "      {'Key': 'smso_efd', 'Value': None},\n",
+       "      {'Key': 'dcc_service_flag', 'Value': 'A'},\n",
+       "      {'Key': 'dcc_service_flag_efd', 'Value': '20190806'},\n",
+       "      {'Key': 'ihd_status', 'Value': None},\n",
+       "      {'Key': 'ihd_status_efd', 'Value': None},\n",
+       "      {'Key': 'smets_version', 'Value': None},\n",
+       "      {'Key': 'distributor_mpid', 'Value': 'EMEB'},\n",
+       "      {'Key': 'metered_indicator', 'Value': 'T'},\n",
+       "      {'Key': 'metered_indicator_efd', 'Value': '20161024'},\n",
+       "      {'Key': 'metered_indicator_etd', 'Value': None},\n",
+       "      {'Key': 'consumer_type', 'Value': 'Domestic'},\n",
+       "      {'Key': 'domestic_consumer_indicator', 'Value': 'T'},\n",
+       "      {'Key': 'relationship_status_indicator', 'Value': 'None'},\n",
+       "      {'Key': 'rmp_state', 'Value': 'O'},\n",
+       "      {'Key': 'rmp_efd', 'Value': '20060418'}],\n",
+       "     'UtilityKey': '1160000078917',\n",
+       "     'UtilityType': 'electricity',\n",
+       "     'Meters': [{'MeterDetails': [{'Key': 'mpancore',\n",
+       "         'Value': '1160000078917'},\n",
+       "        {'Key': 'meter_serial_number', 'Value': '19L3266306'},\n",
+       "        {'Key': 'meter_install_date', 'Value': '20190806'},\n",
+       "        {'Key': 'meter_type', 'Value': 'S2ADE'},\n",
+       "        {'Key': 'map_mpid', 'Value': 'MFGE'},\n",
+       "        {'Key': 'installing_supplier_mpid', 'Value': 'REGE'}]}]}]}]}"
+      ]
+     },
+     "execution_count": 24,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "#The below can be used to view a json file\n",
+    "submit_mpan.json()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "egg = submit_mpan.json()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 63,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'1160000078917'"
+      ]
+     },
+     "execution_count": 63,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "egg['Results'][0]['ParameterSet']['Parameters'][0]['Value']"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3.7.4 64-bit",
+   "language": "python",
+   "name": "python37464bita7d28b4a20364550bdd0b1e86db6206b"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
